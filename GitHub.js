@@ -33,18 +33,14 @@ define(function (require, exports, module) {
      * Post a GIST
      */
     function _postGIST(auth, isPublic, description, filename, content, callback, errorback) {
-        var jsonData = '{"description": "' + description + '",'
-                        + '"public": ' + isPublic + ','
-                        + '"files": {'
-                        + '"' + filename + '": {'
-                        + '"content": ' + content
-                        + '}}}';
+        var gist = {"description" : description, "public": isPublic, "files" : {}};
+        gist.files[filename] = {"content" : content};
         $.ajax({
             type: "POST",
             contentType: "application/json",
             url: API_URL + "/gists?access_token=" + auth.token,
             dataType: 'json',
-            data: jsonData,
+            data: JSON.stringify(gist),
             success: function (data) {
                 callback.apply(this, [data]);
             },
@@ -98,12 +94,11 @@ define(function (require, exports, module) {
      * add a new authorization
      */
     function _addAuthorization(username, password, note, scopes, callback, errorback) {
-        var jsonData = '{"scopes": ["' + scopes.join('","') + '"], "note": "' + note + '"}';
         $.ajax({
             type: "POST",
             contentType: "application/json",
             url: API_URL + "/authorizations",
-            data:  jsonData,
+            data:  JSON.stringify({"scopes" : scopes, "note" : note}),
             dataType: 'json',
             success: function (data) {
                 callback.apply(this, [data]);
@@ -121,12 +116,11 @@ define(function (require, exports, module) {
      * edit an existing authorization
      */
     function _editAuthorization(username, password, auth, note, scopes, callback, errorback) {
-        var jsonData = '{"scopes": ["' + scopes.join('","') + '"], "note": "' + note + '"}';
         $.ajax({
             type: "PATCH",
             contentType: "application/json",
             url: API_URL + "/authorizations/" + auth.id,
-            data:  jsonData,
+            data:   JSON.stringify({"scopes" : scopes, "note" : note}),
             dataType: 'json',
             success: function (data) {
                 callback.apply(this, [data]);

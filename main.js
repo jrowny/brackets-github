@@ -40,7 +40,6 @@ define(function (require, exports, module) {
         _;
     
     require("underscore");
-    require("jquery-json");
     
     //consts
     var PREFERENCES_KEY   = "extensions.brackets-github",
@@ -74,7 +73,7 @@ define(function (require, exports, module) {
     
     
     function _handleError(error) {
-        Dialogs.showModalDialog("error-dialog", "GitHub Error", error.statusText + ": " + $.parseJSON(error.responseText).message);
+        Dialogs.showModalDialog("error-dialog", "GitHub Error", error.statusText + ": " + JSON.parse(error.responseText).message);
     }
     
     function _handleReady() {
@@ -194,7 +193,7 @@ define(function (require, exports, module) {
             GitHub.postGIST(auth, true,
                             "posted from brackets",
                             document.file.name,
-                            $.quoteString(document.getText()),
+                            document.getText(),
                             function (gist) {
                     //I know I shouldn't use the error-dialog for this, but dialogs is lacking right now.
                     Dialogs.showModalDialog("error-dialog", "Gist Posted", '<a href="' + gist.html_url + '" target="_new">' + gist.html_url + '</a>');
@@ -209,7 +208,7 @@ define(function (require, exports, module) {
             GitHub.postGIST(auth, true,
                             "posted from brackets",
                             document.file.name,
-                            $.quoteString(editor.getSelectedText()),
+                            editor.getSelectedText(),
                             function (gist) {
                     //I know I shouldn't use the error-dialog for this, but dialogs is lacking right now.
                     Dialogs.showModalDialog("error-dialog", "Gist Posted", '<a href="' + gist.html_url + '" target="_new">' + gist.html_url + '</a>');
