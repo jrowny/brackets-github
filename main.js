@@ -33,6 +33,7 @@ define(function (require, exports, module) {
         Commands                = brackets.getModule("command/Commands"),
         CommandManager          = brackets.getModule("command/CommandManager"),
         DocumentManager         = brackets.getModule("document/DocumentManager"),
+        EditorManager           = brackets.getModule("editor/EditorManager"),
         Menus                   = brackets.getModule("command/Menus"),
         Dialogs                 = brackets.getModule("widgets/Dialogs"),
         GitHub                  = require("GitHub"),
@@ -60,17 +61,40 @@ define(function (require, exports, module) {
                             + '        <a href="#" class="dialog-button btn primary" data-button-id="ok">LOGIN</a>'
                             + '    </div>'
                             + '</div>"',
-        GITHUB_LOGIN      = "github-login-command",
-        GITHUB_GIST       = "github-gist-command";
+        GITHUB_LOGIN            = "github.login",
+        GITHUB_GIST_DOCUMENT    = "github.gist-document",
+        GITHUB_GIST_SELECTION   = "github.gist-selection",
+        GITHUB_LOGOUT           = "github.logout";
     
     var prefs,
         auth,
-        menu;
+        menu,
+        menuSetup,
+        user;
     
+    
+    function _handleError(error) {
+        Dialogs.showModalDialog("error-dialog", "GitHub Error", error.statusText + ": " + $.parseJSON(error.responseText).message);
+    }
     
     function _handleReady() {
-        $('#github-login').parent().remove();
-        menu.addMenuItem("github-gist", GITHUB_GIST);
+        $('#github-login').parent().hide();
+        //I have to do this because there's currently no "removeMenuItem"
+        if (!menuSetup) {
+            menu.addMenuItem("github-gist-doc", GITHUB_GIST_DOCUMENT);
+            menu.addMenuItem("github-gist-selection", GITHUB_GIST_SELECTION);
+            menu.addMenuDivider();
+            menu.addMenuItem("github-logout", GITHUB_LOGOUT);
+            menuSetup = true;
+        } else {
+            $('#github-gist-doc, #github-gist-selection, #github-logout').parent().show();
+        }
+        GitHub.currentUser(auth, function (gitUser) {
+            user = gitUser;
+            $('#github a').first().css({"padding-left": "30px",
+                                        "background": "url(" + user.avatar_url + ") no-repeat 6px 7px",
+                                        "background-size": "20px"});
+        }, _handleError);
     }
     
     function _handleAuthAdded(authorization) {
@@ -78,8 +102,6 @@ define(function (require, exports, module) {
             auth = authorization;
             prefs.setValue("auth", auth);
             _handleReady();
-        } else {
-            console.log(authorization);
         }
     }
     
@@ -92,10 +114,8 @@ define(function (require, exports, module) {
                 prefs.setValue("auth", auth);
                 _handleReady();
             } else {
-                GitHub.addAuthorization(username, password, AUTH_NOTE, REQUESTED_SCOPES, _handleAuthAdded);
+                GitHub.addAuthorization(username, password, AUTH_NOTE, REQUESTED_SCOPES, _handleAuthAdded, _handleError);
             }
-        } else {
-            console.log(authorizations);
         }
     }
     
@@ -111,7 +131,7 @@ define(function (require, exports, module) {
             Dialogs.cancelModalDialogIfOpen(".github-login-dialog");
         });
         $dlg.one("click", ".dialog-button.primary", function (e) {
-            GitHub.listAuthorizations($dlg.find('.username').val(), $dlg.find('.password').val(), _handleLoginResult);
+            GitHub.listAuthorizations($dlg.find('.username').val(), $dlg.find('.password').val(), _handleLoginResult, _handleError);
             Dialogs.cancelModalDialogIfOpen(".github-login-dialog");
         });
         
@@ -123,13 +143,11 @@ define(function (require, exports, module) {
         });
     }
     
-    function _handleEditAuth(data) {
-        if (data.hasOwnProperty("scopes")) {
-            auth = data;
+    function _handleEditAuth(authorization) {
+        if (authorization.hasOwnProperty("scopes")) {
+            auth = authorization;
             prefs.setValue("auth", auth);
             _handleReady();
-        } else {
-            alert("Could not update with proper authorization scopes");
         }
     }
     
@@ -149,7 +167,7 @@ define(function (require, exports, module) {
         });
         $dlg.one("click", ".dialog-button.primary", function (e) {
             
-            GitHub.editAuthorization($dlg.find('.username').val(), $dlg.find('.password').val(), auth, AUTH_NOTE, REQUESTED_SCOPES, _handleEditAuth);
+            GitHub.editAuthorization($dlg.find('.username').val(), $dlg.find('.password').val(), auth, AUTH_NOTE, REQUESTED_SCOPES, _handleEditAuth, _handleError);
             Dialogs.cancelModalDialogIfOpen(".github-login-dialog");
         });
         
@@ -161,13 +179,39 @@ define(function (require, exports, module) {
         });
     }
     
-    function _handleGIST() {
+    function _handleLogout() {
+        auth = {};
+        prefs.setValue("auth", auth);
+        $('#github-login').parent().show();
+        $('#github-gist-doc, #github-gist-selection, #github-logout').parent().hide();
+        $('#github a').first().css({"padding-left": "10px",
+                                    "background": "none"});
+    }
+    
+    function _handleGISTDocument() {
         var document = DocumentManager.getCurrentDocument();
-        GitHub.postGIST(auth,
+        GitHub.postGIST(auth, true,
                         "posted from brackets",
                         document.file.name,
                         $.quoteString(document.getText()),
-                        function (gist) { console.log(gist); });
+                        function (gist) {
+                //I know I shouldn't use the error-dialog for this, but dialogs is lacking right now.
+                Dialogs.showModalDialog("error-dialog", "Gist Posted", '<a href="' + gist.html_url + '" target="_new">' + gist.html_url + '</a>');
+            },
+                        _handleError);
+    }
+    function _handleGISTSelection() {
+        var editor = EditorManager.getCurrentFullEditor();
+        var document = DocumentManager.getCurrentDocument();
+        GitHub.postGIST(auth, true,
+                        "posted from brackets",
+                        document.file.name,
+                        $.quoteString(editor.getSelectedText()),
+                        function (gist) {
+                //I know I shouldn't use the error-dialog for this, but dialogs is lacking right now.
+                Dialogs.showModalDialog("error-dialog", "Gist Posted", '<a href="' + gist.html_url + '" target="_new">' + gist.html_url + '</a>');
+            },
+                        _handleError);
     }
     
     
@@ -179,7 +223,6 @@ define(function (require, exports, module) {
         $('body').append($(LOGIN_DIALOG));
         prefs = PreferencesManager.getPreferenceStorage(PREFERENCES_KEY);
         auth = prefs.getValue("auth") || {};
-        console.log(auth);
         menu = Menus.addMenu("GitHub", "github");
         menu.addMenuItem("github-login", GITHUB_LOGIN);
         
@@ -196,6 +239,8 @@ define(function (require, exports, module) {
     }
     
     CommandManager.register("Login", GITHUB_LOGIN, _handleLogin);
-    CommandManager.register("Make GIST", GITHUB_GIST, _handleGIST);
+    CommandManager.register("GIST Current Document", GITHUB_GIST_DOCUMENT, _handleGISTDocument);
+    CommandManager.register("GIST Current Selection", GITHUB_GIST_SELECTION, _handleGISTSelection);
+    CommandManager.register("Logout", GITHUB_LOGOUT, _handleLogout);
     init();
 });

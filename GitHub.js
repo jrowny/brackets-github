@@ -32,14 +32,13 @@ define(function (require, exports, module) {
      /**
      * Post a GIST
      */
-    function _postGIST(auth, description, filename, content, callback) {
+    function _postGIST(auth, isPublic, description, filename, content, callback, errorback) {
         var jsonData = '{"description": "' + description + '",'
-                        + '"public": true,'
+                        + '"public": ' + isPublic + ','
                         + '"files": {'
                         + '"' + filename + '": {'
                         + '"content": ' + content
                         + '}}}';
-        console.log(jsonData);
         $.ajax({
             type: "POST",
             contentType: "application/json",
@@ -47,11 +46,28 @@ define(function (require, exports, module) {
             dataType: 'json',
             data: jsonData,
             success: function (data) {
-                console.log(data);
                 callback.apply(this, [data]);
             },
             error: function (e) {
-                console.log(e);
+                errorback.apply(this, [e]);
+            }
+        });
+    }
+    
+    /**
+     * Get current user info
+     */
+    function _currentUser(auth, callback, errorback) {
+        $.ajax({
+            type: "GET",
+            contentType: "application/json",
+            url: API_URL + "/user?access_token=" + auth.token,
+            dataType: 'json',
+            success: function (data) {
+                callback.apply(this, [data]);
+            },
+            error: function (e) {
+                errorback.apply(this, [e]);
             }
         });
     }
@@ -60,7 +76,7 @@ define(function (require, exports, module) {
     /**
      * List Authorizations for given user
      */
-    function _listAuthorizations(username, password, callback) {
+    function _listAuthorizations(username, password, callback, errorback) {
         $.ajax({
             type: "GET",
             contentType: "application/json",
@@ -70,7 +86,7 @@ define(function (require, exports, module) {
                 callback.apply(this, [data, username, password]);
             },
             error: function (e) {
-                console.log(e);
+                errorback.apply(this, [e]);
             },
             beforeSend: function (xhr) {
                 xhr.setRequestHeader('Authorization', 'Basic ' + window.btoa(username + ":" + password));
@@ -81,7 +97,7 @@ define(function (require, exports, module) {
     /**
      * add a new authorization
      */
-    function _addAuthorization(username, password, note, scopes, callback) {
+    function _addAuthorization(username, password, note, scopes, callback, errorback) {
         var jsonData = '{"scopes": ["' + scopes.join('","') + '"], "note": "' + note + '"}';
         $.ajax({
             type: "POST",
@@ -93,7 +109,7 @@ define(function (require, exports, module) {
                 callback.apply(this, [data]);
             },
             error: function (e) {
-                console.log(e);
+                errorback.apply(this, [e]);
             },
             beforeSend: function (xhr) {
                 xhr.setRequestHeader('Authorization', 'Basic ' + window.btoa(username + ":" + password));
@@ -104,7 +120,7 @@ define(function (require, exports, module) {
     /**
      * edit an existing authorization
      */
-    function _editAuthorization(username, password, auth, note, scopes, callback) {
+    function _editAuthorization(username, password, auth, note, scopes, callback, errorback) {
         var jsonData = '{"scopes": ["' + scopes.join('","') + '"], "note": "' + note + '"}';
         $.ajax({
             type: "PATCH",
@@ -116,7 +132,7 @@ define(function (require, exports, module) {
                 callback.apply(this, [data]);
             },
             error: function (e) {
-                console.log(e);
+                errorback.apply(this, [e]);
             },
             beforeSend: function (xhr) {
                 xhr.setRequestHeader('Authorization', 'Basic ' + window.btoa(username + ":" + password));
@@ -124,6 +140,7 @@ define(function (require, exports, module) {
         });
     }
         
+    exports.currentUser = _currentUser;
     exports.postGIST = _postGIST;
     exports.listAuthorizations = _listAuthorizations;
     exports.addAuthorization  = _addAuthorization;
