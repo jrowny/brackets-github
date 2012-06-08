@@ -190,28 +190,32 @@ define(function (require, exports, module) {
     
     function _handleGISTDocument() {
         var document = DocumentManager.getCurrentDocument();
-        GitHub.postGIST(auth, true,
-                        "posted from brackets",
-                        document.file.name,
-                        $.quoteString(document.getText()),
-                        function (gist) {
-                //I know I shouldn't use the error-dialog for this, but dialogs is lacking right now.
-                Dialogs.showModalDialog("error-dialog", "Gist Posted", '<a href="' + gist.html_url + '" target="_new">' + gist.html_url + '</a>');
-            },
-                        _handleError);
+        if (document) {
+            GitHub.postGIST(auth, true,
+                            "posted from brackets",
+                            document.file.name,
+                            $.quoteString(document.getText()),
+                            function (gist) {
+                    //I know I shouldn't use the error-dialog for this, but dialogs is lacking right now.
+                    Dialogs.showModalDialog("error-dialog", "Gist Posted", '<a href="' + gist.html_url + '" target="_new">' + gist.html_url + '</a>');
+                },
+                            _handleError);
+        }
     }
     function _handleGISTSelection() {
         var editor = EditorManager.getCurrentFullEditor();
         var document = DocumentManager.getCurrentDocument();
-        GitHub.postGIST(auth, true,
-                        "posted from brackets",
-                        document.file.name,
-                        $.quoteString(editor.getSelectedText()),
-                        function (gist) {
-                //I know I shouldn't use the error-dialog for this, but dialogs is lacking right now.
-                Dialogs.showModalDialog("error-dialog", "Gist Posted", '<a href="' + gist.html_url + '" target="_new">' + gist.html_url + '</a>');
-            },
-                        _handleError);
+        if (document && editor && editor.getSelectedText().length) {
+            GitHub.postGIST(auth, true,
+                            "posted from brackets",
+                            document.file.name,
+                            $.quoteString(editor.getSelectedText()),
+                            function (gist) {
+                    //I know I shouldn't use the error-dialog for this, but dialogs is lacking right now.
+                    Dialogs.showModalDialog("error-dialog", "Gist Posted", '<a href="' + gist.html_url + '" target="_new">' + gist.html_url + '</a>');
+                },
+                            _handleError);
+        }
     }
     
     
@@ -232,7 +236,7 @@ define(function (require, exports, module) {
                 //TODO: check to make sure this token hasn't been revoked
                 _handleReady();
             } else {
-                console.log("[GITHUB-BRACKETS] Scopes don't match, asking to edit auth");
+                console.log("[BRACKETS-GITHUB] Scopes don't match, asking to edit auth");
                 _handleUpdateAuth();
             }
         }
