@@ -30,9 +30,9 @@ define(function (require, exports, module) {
     var API_URL = "https://api.github.com";
     
      /**
-     * Post a GIST
+     * Post a Gist
      */
-    function _postGIST(auth, isPublic, description, filename, content, callback, errorback) {
+    function _postGist(auth, isPublic, description, filename, content, callback, errorback) {
         var gist = {"description" : description, "public": isPublic, "files" : {}};
         gist.files[filename] = {"content" : content};
         $.ajax({
@@ -135,7 +135,7 @@ define(function (require, exports, module) {
     }
         
     exports.currentUser = _currentUser;
-    exports.postGIST = _postGIST;
+    exports.postGist = _postGist;
     exports.listAuthorizations = _listAuthorizations;
     exports.addAuthorization  = _addAuthorization;
     exports.editAuthorization = _editAuthorization;

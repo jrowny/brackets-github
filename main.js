@@ -30,7 +30,6 @@ define(function (require, exports, module) {
    
     // Brackets modules
     var PreferencesManager      = brackets.getModule("preferences/PreferencesManager"),
-        Commands                = brackets.getModule("command/Commands"),
         CommandManager          = brackets.getModule("command/CommandManager"),
         DocumentManager         = brackets.getModule("document/DocumentManager"),
         EditorManager           = brackets.getModule("editor/EditorManager"),
@@ -76,7 +75,7 @@ define(function (require, exports, module) {
         Dialogs.showModalDialog("error-dialog", "GitHub Error", error.statusText + ": " + JSON.parse(error.responseText).message);
     }
     
-    function _handleReady() {
+    function ready() {
         $('#github-login').parent().hide();
         //I have to do this because there's currently no "removeMenuItem"
         if (!menuSetup) {
@@ -100,7 +99,7 @@ define(function (require, exports, module) {
         if (authorization.hasOwnProperty("scopes")) {
             auth = authorization;
             prefs.setValue("auth", auth);
-            _handleReady();
+            ready();
         }
     }
     
@@ -111,7 +110,7 @@ define(function (require, exports, module) {
             if (findAuth !== undefined) {
                 auth = findAuth;
                 prefs.setValue("auth", auth);
-                _handleReady();
+                ready();
             } else {
                 GitHub.addAuthorization(username, password, AUTH_NOTE, REQUESTED_SCOPES, _handleAuthAdded, _handleError);
             }
@@ -146,12 +145,12 @@ define(function (require, exports, module) {
         if (authorization.hasOwnProperty("scopes")) {
             auth = authorization;
             prefs.setValue("auth", auth);
-            _handleReady();
+            ready();
         }
     }
     
     
-    function _handleUpdateAuth() {
+    function updateAuth() {
         var $dlg = $(".github-login-dialog.template")
             .clone()
             .removeClass("template")
@@ -187,17 +186,23 @@ define(function (require, exports, module) {
                                     "background": "none"});
     }
     
+    function _handleGistPost(gist) {
+        //I know I shouldn't use the error-dialog for this, but dialogs is lacking right now.
+        Dialogs.showModalDialog("error-dialog",
+                                "Gist Posted",
+                                '<div><label>URL:</label><input type="text" value="' + gist.html_url + '"/></div>'
+                                + '<div><label>Embed Code:</label><input type="text" value="&lt;script src=&quot;https://gist.github.com/'
+                                + gist.id + '.js&quot;&gt;"/></div>');
+    }
+    
     function _handleGISTDocument() {
         var document = DocumentManager.getCurrentDocument();
         if (document) {
-            GitHub.postGIST(auth, true,
+            GitHub.postGist(auth, true,
                             "posted from brackets",
                             document.file.name,
                             document.getText(),
-                            function (gist) {
-                    //I know I shouldn't use the error-dialog for this, but dialogs is lacking right now.
-                    Dialogs.showModalDialog("error-dialog", "Gist Posted", '<a href="' + gist.html_url + '" target="_new">' + gist.html_url + '</a>');
-                },
+                            _handleGistPost,
                             _handleError);
         }
     }
@@ -205,14 +210,11 @@ define(function (require, exports, module) {
         var editor = EditorManager.getCurrentFullEditor();
         var document = DocumentManager.getCurrentDocument();
         if (document && editor && editor.getSelectedText().length) {
-            GitHub.postGIST(auth, true,
+            GitHub.postGist(auth, true,
                             "posted from brackets",
                             document.file.name,
                             editor.getSelectedText(),
-                            function (gist) {
-                    //I know I shouldn't use the error-dialog for this, but dialogs is lacking right now.
-                    Dialogs.showModalDialog("error-dialog", "Gist Posted", '<a href="' + gist.html_url + '" target="_new">' + gist.html_url + '</a>');
-                },
+                            _handleGistPost,
                             _handleError);
         }
     }
@@ -233,10 +235,10 @@ define(function (require, exports, module) {
             //make sure this auth has the right permissions, if not, we need to modify the authorization
             if (auth.scopes.length === REQUESTED_SCOPES.length && _.intersection(auth.scopes, REQUESTED_SCOPES).length === REQUESTED_SCOPES.length) {
                 //TODO: check to make sure this token hasn't been revoked
-                _handleReady();
+                ready();
             } else {
                 console.log("[BRACKETS-GITHUB] Scopes don't match, asking to edit auth");
-                _handleUpdateAuth();
+                updateAuth();
             }
         }
     }
