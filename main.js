@@ -87,7 +87,7 @@ define(function (require, exports, module) {
             menu.addMenuItem("github-logout", GITHUB_LOGOUT);
             menuSetup = true;
         } else {
-            $('#github-gist-doc, #github-gist-selection, #github-logout').parent().show();
+            $('#github-gist-doc, #github-gist-selection, #github-logout, .divider').parent().show();
         }
         GitHub.currentUser(auth, function (gitUser) {
             user = gitUser;
@@ -183,7 +183,7 @@ define(function (require, exports, module) {
         auth = {};
         prefs.setValue("auth", auth);
         $('#github-login').parent().show();
-        $('#github-gist-doc, #github-gist-selection, #github-logout').parent().hide();
+        $('#github-gist-doc, #github-gist-selection, #github-logout, .divider').parent().hide();
         $('#github a').first().css({"padding-left": "10px",
                                     "background": "none"});
     }
