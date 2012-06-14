@@ -60,42 +60,40 @@ define(function (require, exports, module) {
                             + '    </div>'
                             + '</div>"',
         GITHUB_LOGIN            = "github.login",
-        GITHUB_GIST_DOCUMENT    = "github.gist-document",
-        GITHUB_GIST_SELECTION   = "github.gist-selection",
+        GITHUB_GIST_DOCUMENT    = "github.gist.document",
+        GITHUB_GIST_SELECTION   = "github.gist.selection",
+        GITHUB_GIST_IMPORT      = "github.gist.import",
         GITHUB_LOGOUT           = "github.logout";
     
     var prefs,
         auth,
         menu,
-        menuSetup,
         user;
     
     
-    function _handleError(error) {
+    function onError(error) {
         Dialogs.showModalDialog("error-dialog", "GitHub Error", error.statusText + ": " + JSON.parse(error.responseText).message);
     }
     
     function ready() {
         $('#github-login').parent().hide();
-        //I have to do this because there's currently no "removeMenuItem"
-        if (!menuSetup) {
-            menu.addMenuItem("github-gist-doc", GITHUB_GIST_DOCUMENT);
-            menu.addMenuItem("github-gist-selection", GITHUB_GIST_SELECTION);
-            menu.addMenuDivider();
-            menu.addMenuItem("github-logout", GITHUB_LOGOUT);
-            menuSetup = true;
-        } else {
-            $('#github-gist-doc, #github-gist-selection, #github-logout, .divider').parent().show();
-        }
+   
+        CommandManager.get(GITHUB_LOGIN).setEnabled(false);
+        CommandManager.get(GITHUB_LOGOUT).setEnabled(true);
+        CommandManager.get(GITHUB_GIST_DOCUMENT).setEnabled(true);
+        CommandManager.get(GITHUB_GIST_SELECTION).setEnabled(true);
+        CommandManager.get(GITHUB_GIST_IMPORT).setEnabled(true);
+        
         GitHub.currentUser(auth, function (gitUser) {
             user = gitUser;
             $('#github a').first().css({"padding-left": "30px",
                                         "background": "url(" + user.avatar_url + ") no-repeat 6px 7px",
                                         "background-size": "20px"});
-        }, _handleError);
+        }, onError);
     }
     
-    function _handleAuthAdded(authorization) {
+    //update authorization in preferences, trigger ready
+    function setAuth(authorization) {
         if (authorization.hasOwnProperty("scopes")) {
             auth = authorization;
             prefs.setValue("auth", auth);
@@ -103,20 +101,26 @@ define(function (require, exports, module) {
         }
     }
     
-    function _handleLoginResult(authorizations, username, password) {
+    //handle logging into github (check for authorizations)
+    function onLoginResult(authorizations, username, password) {
+        var findAuth;
+        
+        //An array of authorizations is returned, check to see if it contains a valid authorization for github brackets
         if (_.isArray(authorizations)) {
-            var findAuth = _.find(authorizations, function (nAuth) { return nAuth.note === "brackets-github"; });
+            findAuth = _.find(authorizations, function (nAuth) { return nAuth.note === "brackets-github"; });
             console.log(findAuth);
             if (findAuth !== undefined) {
-                auth = findAuth;
-                prefs.setValue("auth", auth);
-                ready();
-            } else {
-                GitHub.addAuthorization(username, password, AUTH_NOTE, REQUESTED_SCOPES, _handleAuthAdded, _handleError);
+                setAuth(findAuth);
             }
+        }
+        
+        //no authorization found
+        if (findAuth === undefined) {
+            GitHub.addAuthorization(username, password, AUTH_NOTE, REQUESTED_SCOPES, setAuth, onError);
         }
     }
     
+    //show dialog for login
     function _handleLogin() {
         var $dlg = $(".github-login-dialog.template")
             .clone()
@@ -129,7 +133,7 @@ define(function (require, exports, module) {
             Dialogs.cancelModalDialogIfOpen(".github-login-dialog");
         });
         $dlg.one("click", ".dialog-button.primary", function (e) {
-            GitHub.listAuthorizations($dlg.find('.username').val(), $dlg.find('.password').val(), _handleLoginResult, _handleError);
+            GitHub.listAuthorizations($dlg.find('.username').val(), $dlg.find('.password').val(), onLoginResult, onError);
             Dialogs.cancelModalDialogIfOpen(".github-login-dialog");
         });
         
@@ -141,15 +145,7 @@ define(function (require, exports, module) {
         });
     }
     
-    function _handleEditAuth(authorization) {
-        if (authorization.hasOwnProperty("scopes")) {
-            auth = authorization;
-            prefs.setValue("auth", auth);
-            ready();
-        }
-    }
-    
-    
+    //Ask a user to update their authorization
     function updateAuth() {
         var $dlg = $(".github-login-dialog.template")
             .clone()
@@ -164,8 +160,7 @@ define(function (require, exports, module) {
             Dialogs.cancelModalDialogIfOpen(".github-login-dialog");
         });
         $dlg.one("click", ".dialog-button.primary", function (e) {
-            
-            GitHub.editAuthorization($dlg.find('.username').val(), $dlg.find('.password').val(), auth, AUTH_NOTE, REQUESTED_SCOPES, _handleEditAuth, _handleError);
+            GitHub.editAuthorization($dlg.find('.username').val(), $dlg.find('.password').val(), auth, AUTH_NOTE, REQUESTED_SCOPES, setAuth, onError);
             Dialogs.cancelModalDialogIfOpen(".github-login-dialog");
         });
         
@@ -180,13 +175,17 @@ define(function (require, exports, module) {
     function _handleLogout() {
         auth = {};
         prefs.setValue("auth", auth);
-        $('#github-login').parent().show();
-        $('#github-gist-doc, #github-gist-selection, #github-logout, .divider').parent().hide();
+        CommandManager.get(GITHUB_LOGIN).setEnabled(true);
+        CommandManager.get(GITHUB_LOGOUT).setEnabled(false);
+        CommandManager.get(GITHUB_GIST_DOCUMENT).setEnabled(false);
+        CommandManager.get(GITHUB_GIST_SELECTION).setEnabled(false);
+        CommandManager.get(GITHUB_GIST_IMPORT).setEnabled(false);
+        
         $('#github a').first().css({"padding-left": "10px",
                                     "background": "none"});
     }
     
-    function _handleGistPost(gist) {
+    function onGistPost(gist) {
         //I know I shouldn't use the error-dialog for this, but dialogs is lacking right now.
         Dialogs.showModalDialog("error-dialog",
                                 "Gist Posted",
@@ -195,18 +194,18 @@ define(function (require, exports, module) {
                                 + gist.id + '.js&quot;&gt;"/></div>');
     }
     
-    function _handleGISTDocument() {
+    function _handleGistDocument() {
         var document = DocumentManager.getCurrentDocument();
         if (document) {
             GitHub.postGist(auth, true,
                             "posted from brackets",
                             document.file.name,
                             document.getText(),
-                            _handleGistPost,
-                            _handleError);
+                            onGistPost,
+                            onError);
         }
     }
-    function _handleGISTSelection() {
+    function _handleGistSelection() {
         var editor = EditorManager.getCurrentFullEditor();
         var document = DocumentManager.getCurrentDocument();
         if (document && editor && editor.getSelectedText().length) {
@@ -214,9 +213,19 @@ define(function (require, exports, module) {
                             "posted from brackets",
                             document.file.name,
                             editor.getSelectedText(),
-                            _handleGistPost,
-                            _handleError);
+                            onGistPost,
+                            onError);
         }
+    }
+    
+    function onGetGist(gist) {
+        
+    }
+    
+    function _handleGistImport() {
+        alert("This doesn't work yet :(");
+        //var id = prompt("Gist ID:", "0");
+        //GitHub.getGist(auth, id, onGetGist, onError);
     }
     
     
@@ -229,7 +238,12 @@ define(function (require, exports, module) {
         prefs = PreferencesManager.getPreferenceStorage(PREFERENCES_KEY);
         auth = prefs.getValue("auth") || {};
         menu = Menus.addMenu("GitHub", "github");
-        menu.addMenuItem("github-login", GITHUB_LOGIN);
+        menu.addMenuItem(GITHUB_LOGIN);
+        menu.addMenuItem(GITHUB_LOGOUT);
+        menu.addMenuDivider();
+        menu.addMenuItem(GITHUB_GIST_DOCUMENT);
+        menu.addMenuItem(GITHUB_GIST_SELECTION);
+        menu.addMenuItem(GITHUB_GIST_IMPORT);
         
         if (auth.hasOwnProperty("scopes")) {
             //make sure this auth has the right permissions, if not, we need to modify the authorization
@@ -244,8 +258,9 @@ define(function (require, exports, module) {
     }
     
     CommandManager.register("Login", GITHUB_LOGIN, _handleLogin);
-    CommandManager.register("GIST Current Document", GITHUB_GIST_DOCUMENT, _handleGISTDocument);
-    CommandManager.register("GIST Current Selection", GITHUB_GIST_SELECTION, _handleGISTSelection);
-    CommandManager.register("Logout", GITHUB_LOGOUT, _handleLogout);
+    CommandManager.register("Gist Current Document", GITHUB_GIST_DOCUMENT, _handleGistDocument).setEnabled(false);
+    CommandManager.register("Gist Current Selection", GITHUB_GIST_SELECTION, _handleGistSelection).setEnabled(false);
+    CommandManager.register("Import Gist", GITHUB_GIST_IMPORT, _handleGistImport).setEnabled(false);
+    CommandManager.register("Logout", GITHUB_LOGOUT, _handleLogout).setEnabled(false);
     init();
 });
