@@ -51,6 +51,24 @@ define(function (require, exports, module) {
     }
     
     /**
+     * Get a Gist
+     */
+    function _getGist(auth, id, callback, errorback) {
+        $.ajax({
+            type: "GET",
+            contentType: "application/json",
+            url: API_URL + "/gists/" + id + "?access_token=" + auth.token,
+            dataType: 'json',
+            success: function (data) {
+                callback.apply(this, [data]);
+            },
+            error: function (e) {
+                errorback.apply(this, [e]);
+            }
+        });
+    }
+    
+    /**
      * Get current user info
      */
     function _currentUser(auth, callback, errorback) {
@@ -136,6 +154,7 @@ define(function (require, exports, module) {
         
     exports.currentUser = _currentUser;
     exports.postGist = _postGist;
+    exports.getGist = _getGist;
     exports.listAuthorizations = _listAuthorizations;
     exports.addAuthorization  = _addAuthorization;
     exports.editAuthorization = _editAuthorization;
