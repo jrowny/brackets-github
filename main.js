@@ -35,6 +35,7 @@ define(function (require, exports, module) {
         EditorManager           = brackets.getModule("editor/EditorManager"),
         Menus                   = brackets.getModule("command/Menus"),
         Dialogs                 = brackets.getModule("widgets/Dialogs"),
+        ExtensionUtils          = brackets.getModule("utils/ExtensionUtils"),
         GitHub                  = require("GitHub"),
         _;
     
@@ -86,9 +87,9 @@ define(function (require, exports, module) {
         
         GitHub.currentUser(auth, function (gitUser) {
             user = gitUser;
-            $('#github a').first().css({"padding-left": "30px",
-                                        "background": "url(" + user.avatar_url + ") no-repeat 6px 7px",
-                                        "background-size": "20px"});
+            $('#github a').first().addClass("gh-logged-in").css("background-image", "url(" + user.avatar_url + ") ");
+            
+            CommandManager.get(GITHUB_LOGIN).setName("Logged in as " + user.login);
         }, onError);
     }
     
@@ -108,7 +109,6 @@ define(function (require, exports, module) {
         //An array of authorizations is returned, check to see if it contains a valid authorization for github brackets
         if (_.isArray(authorizations)) {
             findAuth = _.find(authorizations, function (nAuth) { return nAuth.note === "brackets-github"; });
-            console.log(findAuth);
             if (findAuth !== undefined) {
                 setAuth(findAuth);
             }
@@ -176,13 +176,13 @@ define(function (require, exports, module) {
         auth = {};
         prefs.setValue("auth", auth);
         CommandManager.get(GITHUB_LOGIN).setEnabled(true);
+        CommandManager.get(GITHUB_LOGIN).setName("Login");
         CommandManager.get(GITHUB_LOGOUT).setEnabled(false);
         CommandManager.get(GITHUB_GIST_DOCUMENT).setEnabled(false);
         CommandManager.get(GITHUB_GIST_SELECTION).setEnabled(false);
         CommandManager.get(GITHUB_GIST_IMPORT).setEnabled(false);
         
-        $('#github a').first().css({"padding-left": "10px",
-                                    "background": "none"});
+        $('#github a').first().removeClass("gh-logged-in").css("background-image", "none");
     }
     
     function onGistPost(gist) {
@@ -203,6 +203,9 @@ define(function (require, exports, module) {
                             document.getText(),
                             onGistPost,
                             onError);
+        } else {
+            //TODO: should probably tell the user
+            console.log("[BRACKETS_GITHUB] No document available");
         }
     }
     function _handleGistSelection() {
@@ -215,6 +218,9 @@ define(function (require, exports, module) {
                             editor.getSelectedText(),
                             onGistPost,
                             onError);
+        } else {
+            //TODO: should probably tell the user
+            console.log("[BRACKETS_GITHUB] Nothing selected");
         }
     }
     
@@ -224,27 +230,33 @@ define(function (require, exports, module) {
     
     function _handleGistImport() {
         alert("This doesn't work yet :(");
-        //var id = prompt("Gist ID:", "0");
         //GitHub.getGist(auth, id, onGetGist, onError);
     }
     
     
     /**
-     * check if there is a valid authorization stored, that it has the correct scopes, etc.
+     * setup module, include css, check for auth
      */
     function init() {
         _ = window._;
+        ExtensionUtils.loadStyleSheet(module, "github.css");
         $('body').append($(LOGIN_DIALOG));
         prefs = PreferencesManager.getPreferenceStorage(PREFERENCES_KEY);
         auth = prefs.getValue("auth") || {};
-        menu = Menus.addMenu("GitHub", "github");
+        
+        //setup the menu
+        menu = Menus.addMenu("GitHub", "github", Menus.AFTER, Menus.AppMenuBar.NAVIGATE_MENU);
         menu.addMenuItem(GITHUB_LOGIN);
         menu.addMenuItem(GITHUB_LOGOUT);
         menu.addMenuDivider();
         menu.addMenuItem(GITHUB_GIST_DOCUMENT);
         menu.addMenuItem(GITHUB_GIST_SELECTION);
         menu.addMenuItem(GITHUB_GIST_IMPORT);
-        
+        //setup the context menu
+        var c_menu = Menus.getContextMenu(Menus.ContextMenuIds.EDITOR_MENU);
+        c_menu.addMenuItem(GITHUB_GIST_SELECTION);
+        c_menu.addMenuItem(GITHUB_GIST_DOCUMENT);
+                
         if (auth.hasOwnProperty("scopes")) {
             //make sure this auth has the right permissions, if not, we need to modify the authorization
             if (auth.scopes.length === REQUESTED_SCOPES.length && _.intersection(auth.scopes, REQUESTED_SCOPES).length === REQUESTED_SCOPES.length) {
