@@ -245,7 +245,7 @@ define(function (require, exports, module) {
         auth = prefs.getValue("auth") || {};
         
         //setup the menu
-        menu = Menus.addMenu("GitHub", "github", Menus.AFTER, Menus.AppMenuBar.NAVIGATE_MENU);
+        menu = Menus.addMenu("GitHub", "github", Menus.AFTER, Menus.AppMenuBar.DEBUG_MENU);
         menu.addMenuItem(GITHUB_LOGIN);
         menu.addMenuItem(GITHUB_LOGOUT);
         menu.addMenuDivider();
